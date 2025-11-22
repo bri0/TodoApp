@@ -146,6 +146,49 @@ The app will now be running at [http://localhost:5173/](http://localhost:5173/).
 > [!TIP]
 > For mobile device testing, use `npm run dev:host` to preview the app on your local network with HTTPS (required for camera features) and a QR code in the terminal for quick access. To enable PWA features in development, see [vite.config.ts](vite.config.ts).
 
+## 🏗️ Production Build
+
+Build the app for production using the comprehensive build script powered by Bun.js:
+
+```bash
+# Standard production build with all checks
+bun run build:prod
+
+# Build with detailed bundle analysis
+bun run build:prod:analyze
+
+# Fast build (skip linting and type checking)
+bun run build:prod:fast
+```
+
+The production build includes:
+
+- TypeScript type checking
+- ESLint validation
+- Optimized Vite build with tree shaking and minification
+- Chunk splitting for optimal loading
+- PWA service worker generation
+- Bundle size analysis and reporting
+
+For detailed documentation, see [BUILD.md](BUILD.md).
+
+### Manual Build Options
+
+The build script supports various options:
+
+```bash
+./build-production.sh --help           # Show all options
+./build-production.sh --verbose        # Detailed output
+./build-production.sh --analyze        # Generate analysis report
+./build-production.sh --clean-install  # Clean install before build
+```
+
+After building, preview the production build locally:
+
+```bash
+bun run preview
+```
+
 ## 📷 Screenshots
 
 <img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ss1.png" width="300px" />

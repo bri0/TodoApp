@@ -1,18 +1,14 @@
-import { keyframes, useTheme } from "@emotion/react";
+import { keyframes } from "@emotion/react";
 import styled from "@emotion/styled";
 import {
   AccessTimeFilledRounded,
   AddRounded,
-  AdjustRounded,
-  BugReportRounded,
   CategoryRounded,
   DeleteForeverRounded,
   DownloadDoneRounded,
   Favorite,
-  FavoriteRounded,
   FiberManualRecord,
   GetAppRounded,
-  GitHub,
   InstallDesktopRounded,
   InstallMobileRounded,
   IosShareRounded,
@@ -20,7 +16,6 @@ import {
   PhoneIphoneRounded,
   PhonelinkRounded,
   SettingsRounded,
-  StarRounded,
   TaskAltRounded,
   ThumbUpRounded,
 } from "@mui/icons-material";
@@ -37,8 +32,6 @@ import {
 import React, { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CustomDialogTitle, LogoutDialog, SettingsDialog } from ".";
-import bmcLogoLight from "../assets/bmc-logo-light.svg";
-import bmcLogo from "../assets/bmc-logo.svg";
 import { defaultUser } from "../constants/defaultUser";
 import { UserContext } from "../contexts/UserContext";
 import { fetchBMCInfo } from "../services/bmcApi";
@@ -61,13 +54,13 @@ export const ProfileSidebar = () => {
   const [openLogoutDialog, setOpenLogoutDialog] = useState<boolean>(false);
   const [openSettings, setOpenSettings] = useState<boolean>(false);
 
-  const [stars, setStars] = useState<number | null>(null);
+  const [, setStars] = useState<number | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
-  const [issuesCount, setIssuesCount] = useState<number | null>(null);
+  const [, setIssuesCount] = useState<number | null>(null);
 
-  const [bmcSupporters, setBmcSupporters] = useState<number | null>(null);
+  const [, setBmcSupporters] = useState<number | null>(null);
 
-  const theme = useTheme();
+  // const theme = useTheme();
   const n = useNavigate();
 
   useEffect(() => {
@@ -305,57 +298,6 @@ export const ProfileSidebar = () => {
                   <span>
                     <AccessTimeFilledRounded style={{ fontSize: "16px" }} />
                     {shortRelativeTime(new Date(user.lastSyncedAt))}
-                  </span>
-                </MenuLabel>
-              </Tooltip>
-            )}
-          </StyledMenuItem>
-        </MenuLink>
-
-        <StyledDivider />
-
-        <MenuLink to="https://github.com/maciekt07/TodoApp">
-          <StyledMenuItem translate="no">
-            <GitHub className="GitHubIcon" /> &nbsp; Github{" "}
-            {stars && (
-              <Tooltip title={`${stars} stars on Github`}>
-                <MenuLabel clr="#ff9d00">
-                  <span>
-                    <StarRounded style={{ fontSize: "18px" }} />
-                    {stars}
-                  </span>
-                </MenuLabel>
-              </Tooltip>
-            )}
-          </StyledMenuItem>
-        </MenuLink>
-
-        <MenuLink to="https://github.com/maciekt07/TodoApp/issues/new">
-          <StyledMenuItem>
-            <BugReportRounded className="BugReportRoundedIcon" /> &nbsp; Report Issue{" "}
-            {Boolean(issuesCount || issuesCount === 0) && (
-              <Tooltip title={`${issuesCount} open issues`}>
-                <MenuLabel clr="#3bb61c">
-                  <span>
-                    <AdjustRounded style={{ fontSize: "18px" }} />
-                    {issuesCount}
-                  </span>
-                </MenuLabel>
-              </Tooltip>
-            )}
-          </StyledMenuItem>
-        </MenuLink>
-
-        <MenuLink to="https://www.buymeacoffee.com/maciekt07">
-          <StyledMenuItem className="bmcMenu">
-            <BmcIcon className="bmc-icon" src={theme.darkmode ? bmcLogoLight : bmcLogo} /> &nbsp;
-            Buy me a coffee{" "}
-            {bmcSupporters && (
-              <Tooltip title={`${bmcSupporters} supporters on Buy me a coffee`}>
-                <MenuLabel clr="#f93c58">
-                  <span>
-                    <FavoriteRounded style={{ fontSize: "16px" }} />
-                    {bmcSupporters}
                   </span>
                 </MenuLabel>
               </Tooltip>
@@ -726,11 +668,11 @@ const LogoText = styled.h2`
   }
 `;
 
-const BmcIcon = styled.img`
-  width: 1em;
-  height: 1em;
-  font-size: 1.5rem;
-`;
+// const BmcIcon = styled.img`
+//   width: 1em;
+//   height: 1em;
+//   font-size: 1.5rem;
+// `;
 
 const ProfileOptionsBottom = styled.div`
   margin-top: auto;
