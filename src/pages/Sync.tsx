@@ -1,13 +1,10 @@
 import styled from "@emotion/styled";
 import {
+  CloudSyncRounded,
+  SyncRounded,
   AccessTimeRounded,
-  DevicesRounded,
-  QrCodeRounded,
-  QrCodeScannerRounded,
-  RestartAltRounded,
-  SyncProblemRounded,
-  WifiOffRounded,
-  WifiTetheringRounded,
+  CheckCircleRounded,
+  ErrorRounded,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -15,365 +12,428 @@ import {
   Button,
   CircularProgress,
   Container,
-  FormControl,
-  FormControlLabel,
-  FormLabel,
-  Radio,
-  RadioGroup,
   Stack,
+  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useContext, useEffect, useRef, useState } from "react";
-import QRCode from "react-qr-code";
+import { useContext, useEffect, useState } from "react";
 import { TopBar } from "../components";
-import QRCodeScannerDialog from "../components/QRCodeScannerDialog";
 import { UserContext } from "../contexts/UserContext";
-import { useResponsiveDisplay } from "../hooks/useResponsiveDisplay";
-import { usePeerSync } from "../hooks/usePeerSync";
-import type { OtherDataSyncOption, SyncStatus } from "../types/sync";
-import { getFontColor, showToast, timeAgo } from "../utils";
-import { useOnlineStatus } from "../hooks/useOnlineStatus";
-import DisabledThemeProvider from "../contexts/DisabledThemeProvider";
+import { showToast, timeAgo } from "../utils";
+import {
+  sha256,
+  deriveKeyFromPassword,
+  generateKeyPairFromSeed,
+  decryptData,
+} from "../utils/crypto";
+import { syncData } from "../services/syncApi";
+import { mergeTasks, mergeCategories, prepareTasks, prepareCategories } from "../utils/syncMerge";
+import type { SyncData } from "../services/syncApi";
+
+type SyncState = "idle" | "syncing" | "success" | "error";
 
 export default function Sync() {
-  const { user } = useContext(UserContext);
+  const { user, setUser } = useContext(UserContext);
 
-  const isMobile = useResponsiveDisplay();
-  const isOnline = useOnlineStatus();
-  const [scannerOpen, setScannerOpen] = useState<boolean>(false);
+  // Form fields
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
 
-  const {
-    mode,
-    setMode,
-    hostPeerId,
-    syncStatus,
-    startHost,
-    connectToHost,
-    otherDataSyncOption,
-    setOtherDataSyncOption,
-    otherDataSource,
-    resetAll,
-  } = usePeerSync();
+  // Validation errors
+  const [userIdError, setUserIdError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
-  const otherDataSyncOptionRef = useRef(otherDataSyncOption);
+  // State
+  const [state, setState] = useState<SyncState>("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [progressMessage, setProgressMessage] = useState("");
 
-  useEffect(() => {
-    otherDataSyncOptionRef.current = otherDataSyncOption;
-  }, [otherDataSyncOption]);
+  // Stored credentials
+  const [storedUserId, setStoredUserId] = useState<string | null>(null);
+  const [storedPublicKey, setStoredPublicKey] = useState<string | null>(null);
+  const [storedPublicKeyHash, setStoredPublicKeyHash] = useState<string | null>(null);
+  const [storedPrivateKey, setStoredPrivateKey] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    document.title = "Todo App - Sync Data";
+    document.title = "Todo App - Remote Sync";
+
+    // Check for stored credentials
+    const savedUserId = localStorage.getItem("sync_uid");
+    const savedPublicKey = localStorage.getItem("sync_public_key");
+    const savedPublicKeyHash = localStorage.getItem("sync_public_key_hash");
+    const savedPrivateKey = localStorage.getItem("sync_private_key");
+
+    if (savedUserId && savedPublicKey && savedPublicKeyHash && savedPrivateKey) {
+      setStoredUserId(savedUserId);
+      setStoredPublicKey(savedPublicKey);
+      setStoredPublicKeyHash(savedPublicKeyHash);
+      setStoredPrivateKey(savedPrivateKey);
+      setIsAuthenticated(true);
+    }
   }, []);
 
-  const handleScan = (text: string | null) => {
-    if (!text) return;
-    setScannerOpen(false);
+  // User ID: lowercase alphanumeric only, minimum 8 characters
+  const validateUserId = (id: string): string => {
+    if (!id) return "";
+    if (id.length < 8) return "At least 8 characters required";
+    if (!/^[a-z0-9]+$/.test(id)) return "Only lowercase letters and numbers allowed";
+    return "";
+  };
+
+  // Password: 12+ characters, upper/lower/numbers/symbols
+  const validatePassword = (pwd: string): string => {
+    if (!pwd) return "";
+    if (pwd.length < 12) return "At least 12 characters required";
+    if (!/[a-z]/.test(pwd)) return "Must include lowercase letter";
+    if (!/[A-Z]/.test(pwd)) return "Must include uppercase letter";
+    if (!/[0-9]/.test(pwd)) return "Must include number";
+    if (!/[^a-zA-Z0-9]/.test(pwd)) return "Must include symbol";
+    return "";
+  };
+
+  const handleSync = async () => {
+    setState("syncing");
+    setErrorMessage("");
+
     try {
-      const scannedId = text.trim();
-      setMode("scan");
-      connectToHost(scannedId);
-    } catch (err) {
-      showToast("Failed to scan QR Code", { type: "error" });
-      console.error("Error scanning QR Code:", err);
+      let publicKey: string;
+      let publicKeyHash: string;
+      let privateKey: string;
+      let currentUserId: string;
+
+      // Use stored credentials or derive from password
+      if (
+        isAuthenticated &&
+        storedUserId &&
+        storedPublicKey &&
+        storedPublicKeyHash &&
+        storedPrivateKey
+      ) {
+        publicKey = storedPublicKey;
+        publicKeyHash = storedPublicKeyHash;
+        privateKey = storedPrivateKey;
+        currentUserId = storedUserId;
+        setProgressMessage("Syncing with server...");
+      } else {
+        // Validate input fields
+        if (!userId.trim() || !password.trim()) {
+          showToast("Please enter both User ID and password", { type: "error" });
+          setState("idle");
+          return;
+        }
+
+        setProgressMessage("Deriving encryption keys (this may take a moment)...");
+        const seed = await deriveKeyFromPassword(userId.trim(), password);
+        const keys = await generateKeyPairFromSeed(seed);
+        publicKey = keys.publicKey;
+        privateKey = keys.privateKey;
+        currentUserId = userId.trim();
+
+        // Calculate public key hash
+        publicKeyHash = await sha256(publicKey);
+      }
+
+      // Step 2: Prepare data for sync
+      setProgressMessage("Preparing data for sync...");
+      const preparedTasks = prepareTasks(user.tasks);
+      const preparedCategories = prepareCategories(user.categories);
+
+      const localData: SyncData = {
+        tasks: preparedTasks,
+        categories: preparedCategories,
+      };
+
+      // Step 3: Sync with server
+      setProgressMessage("Syncing with server...");
+
+      // Step 4: Phase 1 - Send data to server and get response
+      const response = await syncData(currentUserId, publicKeyHash, publicKey, localData, false);
+
+      // Step 5: Decrypt response
+      setProgressMessage("Decrypting server response...");
+      const decryptedData = await decryptData(response.encryptedData, publicKey, privateKey);
+      const serverData: SyncData = JSON.parse(decryptedData);
+
+      // Step 6: Check if merge is needed
+      if (response.needsMerge) {
+        // Merge local and server data
+        setProgressMessage("Merging data...");
+        const mergedTasks = mergeTasks(user.tasks, serverData.tasks, user.deletedTasks);
+        const mergedCategories = mergeCategories(
+          user.categories,
+          serverData.categories,
+          user.deletedCategories,
+        );
+
+        const mergedData: SyncData = {
+          tasks: prepareTasks(mergedTasks),
+          categories: prepareCategories(mergedCategories),
+        };
+
+        // Phase 2 - Send merged data back to server
+        setProgressMessage("Saving merged data...");
+        await syncData(currentUserId, publicKeyHash, publicKey, mergedData, true);
+
+        // Update local state
+        setUser((prevUser) => ({
+          ...prevUser,
+          tasks: mergedTasks,
+          categories: mergedCategories,
+          lastSyncedAt: new Date(),
+        }));
+      } else {
+        // No merge needed, just update local state with server data
+        setUser((prevUser) => ({
+          ...prevUser,
+          tasks: serverData.tasks,
+          categories: serverData.categories,
+          lastSyncedAt: new Date(),
+        }));
+      }
+
+      // Store credentials after successful sync (only if not already stored)
+      if (!isAuthenticated) {
+        localStorage.setItem("sync_uid", currentUserId);
+        localStorage.setItem("sync_public_key", publicKey);
+        localStorage.setItem("sync_public_key_hash", publicKeyHash);
+        localStorage.setItem("sync_private_key", privateKey);
+        setStoredUserId(currentUserId);
+        setStoredPublicKey(publicKey);
+        setStoredPublicKeyHash(publicKeyHash);
+        setStoredPrivateKey(privateKey);
+        setIsAuthenticated(true);
+
+        // Notify other components that sync credentials were updated
+        window.dispatchEvent(new Event("sync-credentials-updated"));
+      }
+
+      setState("success");
+      setProgressMessage("Sync completed successfully!");
+      showToast("Data synced successfully!", { type: "success" });
+    } catch (error) {
+      console.error("Sync error:", error);
+      setState("error");
+
+      // Use generic error message to prevent user enumeration
+      const errorMsg =
+        error instanceof Error && error.message.includes("403")
+          ? "Invalid user ID or password combination"
+          : error instanceof Error
+            ? error.message
+            : "Sync failed. Please try again.";
+
+      setErrorMessage(errorMsg);
+      showToast(errorMsg, { type: "error" });
     }
   };
 
-  const getOtherDataSourceLabel = (src: OtherDataSyncOption | null) => {
-    if (!src) return null;
+  const handleLogout = () => {
+    localStorage.removeItem("sync_uid");
+    localStorage.removeItem("sync_public_key");
+    localStorage.removeItem("sync_public_key_hash");
+    localStorage.removeItem("sync_private_key");
+    setStoredUserId(null);
+    setStoredPublicKey(null);
+    setStoredPublicKeyHash(null);
+    setStoredPrivateKey(null);
+    setIsAuthenticated(false);
+    setUserId("");
+    setPassword("");
+    setState("idle");
+    setErrorMessage("");
+    setProgressMessage("");
+    showToast("Credentials cleared", { type: "info" });
 
-    if (src === "this_device") {
-      return mode === "display" ? "This Device" : "Host Device";
-    }
+    // Notify other components that sync credentials were cleared
+    window.dispatchEvent(new Event("sync-credentials-updated"));
+  };
 
-    if (src === "other_device") {
-      return mode === "display" ? "Other Device" : "This Device";
-    }
-
-    return null;
+  const resetState = () => {
+    setState("idle");
+    setErrorMessage("");
+    setProgressMessage("");
   };
 
   return (
     <>
-      <TopBar title="Sync Data" />
+      <TopBar title="Remote Sync" />
       <MainContainer>
-        {!mode && (
-          <>
-            <FeatureDescription>
-              <DevicesRounded sx={{ fontSize: 40, color: (theme) => theme.palette.primary.main }} />
-              <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
-                Sync Data Between Devices
-              </Typography>
-              <Typography variant="body1" sx={{ mb: 2, opacity: 0.9 }}>
-                Securely transfer your tasks, categories and other data between devices with a
-                single QR Code scan using peer-to-peer connection. No data is stored or processed on
-                external servers.
-              </Typography>
-              {user.lastSyncedAt && (
-                <Tooltip
-                  title={new Intl.DateTimeFormat(navigator.language, {
-                    dateStyle: "long",
-                    timeStyle: "medium",
-                  }).format(new Date(user.lastSyncedAt))}
-                  placement="top"
-                >
-                  <LastSyncedText>
-                    <AccessTimeRounded /> &nbsp; Last synced {timeAgo(new Date(user.lastSyncedAt))}
-                  </LastSyncedText>
-                </Tooltip>
-              )}
-              {!isOnline && (
-                <Alert icon={<WifiOffRounded />} severity="error" sx={{ textAlign: "left", mt: 4 }}>
-                  <AlertTitle>Offline</AlertTitle>
-                  You're offline. Both devices must be online to start a peer-to-peer sync.
-                </Alert>
-              )}
-            </FeatureDescription>
-            <ModeSelectionContainer>
-              <DisabledThemeProvider>
-                <SyncButton
-                  variant="contained"
-                  disabled={!isOnline}
-                  onClick={() => {
-                    setOtherDataSyncOption("this_device");
-                    setMode("display");
-                    startHost();
-                  }}
-                  startIcon={<QrCodeRounded />}
-                >
-                  Display QR Code
-                </SyncButton>
-                <SyncButton
-                  variant="outlined"
-                  disabled={!isOnline}
-                  onClick={() => {
-                    setScannerOpen(true);
-                  }}
-                  startIcon={<QrCodeScannerRounded />}
-                >
-                  Scan QR Code
-                </SyncButton>
-              </DisabledThemeProvider>
-            </ModeSelectionContainer>
-          </>
-        )}
+        <FeatureDescription>
+          <CloudSyncRounded sx={{ fontSize: 40, color: (theme) => theme.palette.primary.main }} />
+          <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
+            Remote Sync
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 2, opacity: 0.9 }}>
+            Sync your tasks and categories across devices using end-to-end encryption.
+          </Typography>
+          {user.lastSyncedAt && (
+            <Tooltip
+              title={new Intl.DateTimeFormat(navigator.language, {
+                dateStyle: "long",
+                timeStyle: "medium",
+              }).format(new Date(user.lastSyncedAt))}
+              placement="top"
+            >
+              <LastSyncedText>
+                <AccessTimeRounded /> &nbsp; Last synced {timeAgo(new Date(user.lastSyncedAt))}
+              </LastSyncedText>
+            </Tooltip>
+          )}
+        </FeatureDescription>
 
-        {mode === "display" && (
-          <StyledPaper>
-            <ModeHeader>
-              <WifiTetheringRounded /> Host Mode
-            </ModeHeader>
-            {hostPeerId ? (
-              isSeverity(syncStatus.severity, "success") ? (
-                <SyncSuccessScreen
-                  syncStatus={syncStatus}
-                  otherDataSource={otherDataSource}
-                  getOtherDataSourceLabel={getOtherDataSourceLabel}
-                  resetAll={resetAll}
-                />
-              ) : (
-                <Stack spacing={2} alignItems="center">
-                  <QRCode
-                    value={hostPeerId}
-                    size={300}
-                    style={{ backgroundColor: "white", borderRadius: "8px", padding: "8px" }}
-                  />
-                  <QRCodeLabel>Scan this QR code with another device to sync data</QRCodeLabel>
-                  <FormControl>
-                    <StyledFormLabel id="sync-radio-buttons-group-label">
-                      Sync App Settings & Other Data
-                    </StyledFormLabel>
-                    <RadioGroup
-                      row={!isMobile}
-                      aria-labelledby="sync-radio-buttons-group-label"
-                      name="row-radio-buttons-group"
-                      value={otherDataSyncOption}
-                      onChange={(e) =>
-                        setOtherDataSyncOption(e.target.value as OtherDataSyncOption)
-                      }
-                    >
-                      <StyledFormControlLabel
-                        value="this_device"
-                        control={<Radio />}
-                        label="This Device"
-                      />
-                      <StyledFormControlLabel
-                        value="other_device"
-                        control={<Radio />}
-                        label="Other Device"
-                      />
-                      <StyledFormControlLabel
-                        value="no_sync"
-                        control={<Radio />}
-                        label="Don't Sync"
-                      />
-                    </RadioGroup>
-                  </FormControl>
-                  <Typography
-                    sx={{
-                      opacity: 0.8,
-                      color: (theme) => (theme.palette.mode === "dark" ? "#ffffff" : "#000000"),
-                    }}
-                  >
-                    Tasks and categories will be synced automatically.
-                  </Typography>
-                  <SyncStatusAlert syncStatus={syncStatus} />
-                  <SyncButton
-                    variant="outlined"
-                    onClick={resetAll}
-                    color={isSeverity(syncStatus.severity, "error") ? "error" : "primary"}
-                  >
-                    {isSeverity(syncStatus.severity, "error") ? (
-                      "Try Again"
-                    ) : (
-                      <>
-                        <RestartAltRounded /> &nbsp; Reset
-                      </>
-                    )}
-                  </SyncButton>
-                </Stack>
-              )
-            ) : (
-              <LoadingContainer>
-                <CircularProgress size={24} />
-                <LoadingText>Initializing...</LoadingText>
-              </LoadingContainer>
-            )}
-          </StyledPaper>
-        )}
+        <StyledPaper>
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+            {isAuthenticated ? "Quick Sync" : "Sync Your Data"}
+          </Typography>
+          <Stack spacing={2}>
+            {isAuthenticated ? (
+              <>
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  Synced as: <strong>{storedUserId}</strong>
+                </Typography>
 
-        {mode === "scan" && (
-          <StyledPaper>
-            <ModeHeader>
-              <QrCodeScannerRounded /> Scan Mode
-            </ModeHeader>
-            {isSeverity(syncStatus.severity, "success") ? (
-              <SyncSuccessScreen
-                syncStatus={syncStatus}
-                otherDataSource={otherDataSource}
-                getOtherDataSourceLabel={getOtherDataSourceLabel}
-                resetAll={resetAll}
-              />
-            ) : (
-              <Stack spacing={2} alignItems="center">
-                <SyncStatusAlert syncStatus={syncStatus} />
-                {(syncStatus.message === "Connecting to host..." ||
-                  syncStatus.message === "Connected, sending your data...") && (
+                {state === "syncing" && (
                   <LoadingContainer>
                     <CircularProgress size={24} />
-                    <LoadingText>{syncStatus.message}</LoadingText>
+                    <LoadingText>{progressMessage}</LoadingText>
                   </LoadingContainer>
                 )}
-                <SyncButton
-                  variant="outlined"
-                  onClick={resetAll}
-                  color={isSeverity(syncStatus.severity, "error") ? "error" : "primary"}
-                >
-                  {isSeverity(syncStatus.severity, "error") ? (
-                    "Try Again"
-                  ) : (
-                    <>
-                      <RestartAltRounded /> &nbsp; Reset
-                    </>
-                  )}
-                </SyncButton>
-              </Stack>
-            )}
-          </StyledPaper>
-        )}
 
-        <QRCodeScannerDialog
-          subTitle="Scan a QR code to sync."
-          open={scannerOpen}
-          onClose={() => setScannerOpen(false)}
-          onScan={(result) => {
-            if (result && result[0]?.rawValue) handleScan(result[0].rawValue);
-          }}
-          onError={(err) => {
-            console.error("QR scan error:", err);
-            showToast("Error scanning QR.", { type: "error" });
-            setScannerOpen(false);
-          }}
-        />
+                {state === "error" && (
+                  <Alert severity="error" icon={<ErrorRounded />} sx={{ width: "100%" }}>
+                    <AlertTitle>Sync Error</AlertTitle>
+                    {errorMessage}
+                  </Alert>
+                )}
+
+                {state === "success" && (
+                  <Alert severity="success" icon={<CheckCircleRounded />} sx={{ width: "100%" }}>
+                    <AlertTitle>Sync Complete</AlertTitle>
+                    {progressMessage}
+                  </Alert>
+                )}
+
+                <SyncButton
+                  variant="contained"
+                  onClick={state === "success" || state === "error" ? resetState : handleSync}
+                  disabled={state === "syncing"}
+                  startIcon={
+                    state === "syncing" ? (
+                      <CircularProgress size={20} />
+                    ) : state === "success" ? (
+                      <CheckCircleRounded />
+                    ) : (
+                      <SyncRounded />
+                    )
+                  }
+                  color={state === "success" ? "success" : "primary"}
+                >
+                  {state === "syncing"
+                    ? "Syncing..."
+                    : state === "success" || state === "error"
+                      ? "Done"
+                      : "Sync Now"}
+                </SyncButton>
+
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={handleLogout}
+                  disabled={state === "syncing"}
+                  sx={{ mt: 1 }}
+                >
+                  Change Account
+                </Button>
+              </>
+            ) : (
+              <>
+                <TextField
+                  label="User ID"
+                  variant="outlined"
+                  fullWidth
+                  value={userId}
+                  onChange={(e) => {
+                    setUserId(e.target.value);
+                    setUserIdError(validateUserId(e.target.value));
+                  }}
+                  onBlur={() => setUserIdError(validateUserId(userId))}
+                  disabled={state === "syncing"}
+                  error={!!userIdError}
+                  helperText={userIdError || "Lowercase alphanumeric, 8+ characters"}
+                />
+                <TextField
+                  label="Password"
+                  type="password"
+                  variant="outlined"
+                  fullWidth
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordError(validatePassword(e.target.value));
+                  }}
+                  onBlur={() => setPasswordError(validatePassword(password))}
+                  disabled={state === "syncing"}
+                  error={!!passwordError}
+                  helperText={passwordError || "12+ characters, upper/lower/numbers/symbols"}
+                />
+
+                {state === "syncing" && (
+                  <LoadingContainer>
+                    <CircularProgress size={24} />
+                    <LoadingText>{progressMessage}</LoadingText>
+                  </LoadingContainer>
+                )}
+
+                {state === "error" && (
+                  <Alert severity="error" icon={<ErrorRounded />} sx={{ width: "100%" }}>
+                    <AlertTitle>Sync Error</AlertTitle>
+                    {errorMessage}
+                  </Alert>
+                )}
+
+                {state === "success" && (
+                  <Alert severity="success" icon={<CheckCircleRounded />} sx={{ width: "100%" }}>
+                    <AlertTitle>Sync Complete</AlertTitle>
+                    {progressMessage}
+                  </Alert>
+                )}
+
+                <SyncButton
+                  variant="contained"
+                  onClick={state === "success" || state === "error" ? resetState : handleSync}
+                  disabled={
+                    state === "syncing" ||
+                    !userId.trim() ||
+                    !password.trim() ||
+                    !!validateUserId(userId) ||
+                    !!validatePassword(password)
+                  }
+                  startIcon={
+                    state === "syncing" ? (
+                      <CircularProgress size={20} />
+                    ) : state === "success" ? (
+                      <CheckCircleRounded />
+                    ) : (
+                      <SyncRounded />
+                    )
+                  }
+                  color={state === "success" ? "success" : "primary"}
+                >
+                  {state === "syncing"
+                    ? "Syncing..."
+                    : state === "success" || state === "error"
+                      ? "Done"
+                      : "Sync Now"}
+                </SyncButton>
+              </>
+            )}
+          </Stack>
+        </StyledPaper>
       </MainContainer>
     </>
   );
-}
-export function SyncSuccessScreen({
-  syncStatus,
-  otherDataSource,
-  getOtherDataSourceLabel,
-  resetAll,
-}: {
-  syncStatus: SyncStatus;
-  otherDataSource: OtherDataSyncOption | null;
-  getOtherDataSourceLabel: (src: OtherDataSyncOption | null) => string | null;
-  resetAll: () => void;
-}) {
-  return (
-    <Stack spacing={2} alignItems="center">
-      <StyledAlert severity={syncStatus.severity} icon={undefined}>
-        <b>Sync Complete</b>
-        <div>{syncStatus.message || "Idle"}</div>
-      </StyledAlert>
-      {otherDataSource && (
-        <Typography
-          sx={{
-            fontSize: 12,
-            opacity: 0.8,
-            color: (theme) => (theme.palette.mode === "dark" ? "#ffffff" : "#000000"),
-          }}
-        >
-          Settings and other data{" "}
-          {otherDataSource === "no_sync" ? (
-            "were not synced."
-          ) : (
-            <>
-              were imported from <b>{getOtherDataSourceLabel(otherDataSource)}.</b>
-            </>
-          )}
-        </Typography>
-      )}
-      <SyncButton
-        variant="outlined"
-        onClick={resetAll}
-        color={syncStatus.severity === "success" ? "success" : "primary"}
-      >
-        Done
-      </SyncButton>
-    </Stack>
-  );
-}
-
-function SyncStatusAlert({ syncStatus }: { syncStatus: SyncStatus }) {
-  return (
-    <StyledAlert
-      severity={syncStatus.severity}
-      //@ts-expect-error it works
-      color={isSeverity(syncStatus.severity, "info") ? "primary" : undefined}
-      icon={
-        syncStatus.severity === "error" || syncStatus.severity === "warning" ? (
-          <SyncProblemRounded />
-        ) : undefined
-      }
-    >
-      <AlertTitle>
-        {syncStatus.severity === "error"
-          ? "Error"
-          : syncStatus.severity === "warning"
-            ? "Warning"
-            : "Status"}
-      </AlertTitle>
-      {syncStatus.message || "Idle"}
-    </StyledAlert>
-  );
-}
-
-function isSeverity<T extends SyncStatus["severity"]>(
-  sev: SyncStatus["severity"],
-  value: T,
-): sev is T {
-  return sev === value;
 }
 
 const MainContainer = styled(Container)`
@@ -390,48 +450,12 @@ const FeatureDescription = styled.div`
   margin-bottom: 16px;
 `;
 
-const ModeHeader = styled.h5`
-  color: ${({ theme }) => (theme.darkmode ? "#ffffff" : "#000000")};
-  font-weight: 600;
-  font-size: 1.4rem;
-  text-align: center;
-  margin: 0;
-  margin-bottom: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-`;
-
-const LastSyncedText = styled(Typography)`
-  color: ${({ theme }) => getFontColor(theme.secondary)};
-  opacity: 0.9;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-const ModeSelectionContainer = styled.div`
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  justify-content: center;
-`;
-
 const StyledPaper = styled.div`
   padding: 24px;
   border-radius: 24px;
   background: ${({ theme }) => (theme.darkmode ? "#1f1f1f" : "#ffffff")};
   width: 100%;
   text-align: center;
-`;
-
-const QRCodeLabel = styled(Typography)`
-  font-weight: 600;
-  max-width: 310px;
-  margin: 0;
-  color: ${({ theme }) => (theme.darkmode ? "#ffffff" : "#000000")};
 `;
 
 const LoadingContainer = styled.div`
@@ -449,30 +473,15 @@ const SyncButton = styled(Button)`
   min-width: 180px;
 `;
 
-const StyledAlert = styled(Alert)`
-  width: 100%;
-  max-width: 400px;
-  text-align: left;
-  & .MuiAlert-message {
-    width: 100%;
-  }
-  @media (max-width: 768px) {
-    max-width: 350px;
-  }
-`;
-
 const LoadingText = styled(Typography)`
   color: ${({ theme }) => (theme.darkmode ? "#ffffff" : "#000000")};
 `;
 
-const StyledFormLabel = styled(FormLabel)`
-  color: ${({ theme }) => (theme.darkmode ? "#ffffff" : "#000000")};
-  opacity: 0.8;
-  &.Mui-focused {
-    color: ${({ theme }) => (theme.darkmode ? "#ffffff" : "#000000")};
-  }
-`;
-
-const StyledFormControlLabel = styled(FormControlLabel)`
+const LastSyncedText = styled(Typography)`
+  opacity: 0.9;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: ${({ theme }) => (theme.darkmode ? "#ffffff" : "#000000")};
 `;

@@ -8,7 +8,6 @@ import {
   DownloadDoneRounded,
   Favorite,
   FiberManualRecord,
-  GetAppRounded,
   InstallDesktopRounded,
   InstallMobileRounded,
   IosShareRounded,
@@ -59,6 +58,39 @@ export const ProfileSidebar = () => {
   const [, setIssuesCount] = useState<number | null>(null);
 
   const [, setBmcSupporters] = useState<number | null>(null);
+
+  // Sync user ID from localStorage
+  const [syncUserId, setSyncUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadSyncUserId = () => {
+      const savedUserId = localStorage.getItem("sync_uid");
+      setSyncUserId(savedUserId);
+    };
+
+    // Load initially
+    loadSyncUserId();
+
+    // Listen for storage changes (when sync credentials are saved)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "sync_uid") {
+        loadSyncUserId();
+      }
+    };
+
+    // Listen for custom event when credentials are saved in the same window
+    const handleSyncUpdate = () => {
+      loadSyncUserId();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("sync-credentials-updated", handleSyncUpdate);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("sync-credentials-updated", handleSyncUpdate);
+    };
+  }, []);
 
   // const theme = useTheme();
   const n = useNavigate();
@@ -191,7 +223,7 @@ export const ProfileSidebar = () => {
 
   return (
     <Container>
-      <Tooltip title={<div translate={name ? "no" : "yes"}>{name || "User"}</div>}>
+      <Tooltip title={<div translate={name ? "no" : "yes"}>{syncUserId || name || "User"}</div>}>
         <IconButton
           aria-label="Sidebar"
           aria-controls={open ? "basic-menu" : undefined}
@@ -202,7 +234,7 @@ export const ProfileSidebar = () => {
         >
           <UserAvatar
             src={avatarSrc || undefined}
-            alt={name || "User"}
+            alt={syncUserId || name || "User"}
             hasimage={profilePicture !== null}
             pulse={
               user.name === defaultUser.name &&
@@ -221,7 +253,7 @@ export const ProfileSidebar = () => {
               throw new Error("Error in profile picture URL");
             }}
           >
-            {name ? name[0].toUpperCase() : undefined}
+            {syncUserId ? syncUserId[0].toUpperCase() : name ? name[0].toUpperCase() : undefined}
           </UserAvatar>
         </IconButton>
       </Tooltip>
@@ -283,15 +315,9 @@ export const ProfileSidebar = () => {
           </StyledMenuItem>
         </MenuLink>
 
-        <MenuLink to="/transfer">
-          <StyledMenuItem onClick={handleClose}>
-            <GetAppRounded /> &nbsp; Transfer
-          </StyledMenuItem>
-        </MenuLink>
-
         <MenuLink to="/sync">
           <StyledMenuItem onClick={handleClose}>
-            <PhonelinkRounded /> &nbsp; Sync Devices
+            <PhonelinkRounded /> &nbsp; Remote Sync
             {user.lastSyncedAt && (
               <Tooltip title={`Last synced ${timeAgo(new Date(user.lastSyncedAt))}`}>
                 <MenuLabel>
@@ -374,10 +400,16 @@ export const ProfileSidebar = () => {
                 hasimage={profilePicture !== null}
                 size="44px"
               >
-                {name ? name[0].toUpperCase() : undefined}
+                {syncUserId
+                  ? syncUserId[0].toUpperCase()
+                  : name
+                    ? name[0].toUpperCase()
+                    : undefined}
               </UserAvatar>
-              <h4 style={{ margin: 0, fontWeight: 600 }}> {name || "User"}</h4>{" "}
-              {(name === null || name === "") && profilePicture === null && <PulseMenuLabel />}
+              <h4 style={{ margin: 0, fontWeight: 600 }}>{syncUserId || name || "User"}</h4>
+              {(name === null || name === "") && profilePicture === null && !syncUserId && (
+                <PulseMenuLabel />
+              )}
             </ProfileMenuItem>
           </MenuLink>
 

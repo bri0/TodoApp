@@ -57,6 +57,10 @@ export interface Task {
    * Optional numeric position for drag-and-drop (for p2p sync)
    */
   position?: number;
+  /**
+   * Numeric ID for remote sync (2-byte integer: 0-65535)
+   */
+  numericId?: number;
 }
 
 /**
@@ -68,6 +72,10 @@ export interface Category {
   emoji?: string;
   color: string;
   lastSave?: Date;
+  /**
+   * Numeric ID for remote sync (2-byte integer: 0-65535)
+   */
+  numericId?: number;
 }
 
 /**
