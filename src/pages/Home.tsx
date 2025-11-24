@@ -80,17 +80,17 @@ const Home = () => {
     const percentage = taskStats.completedTaskPercentage;
     switch (true) {
       case percentage === 0:
-        return "No tasks completed yet. Keep going!";
+        return "Time to check some boxes! 💥";
       case percentage === 100:
-        return "Congratulations! All tasks completed!";
+        return "All boxes checked! You absolute legend! 🏆";
       case percentage >= 75:
-        return "Almost there!";
+        return "Almost there! The finish line awaits 🏁";
       case percentage >= 50:
-        return "You're halfway there! Keep it up!";
+        return "Halfway to checkbox heaven! 🎉";
       case percentage >= 25:
-        return "You're making good progress.";
+        return "Nice! The boxes are trembling 💪";
       default:
-        return "You're just getting started.";
+        return "Let's get those checkboxes! ✨";
     }
   }, [taskStats.completedTaskPercentage]);
 
@@ -170,8 +170,8 @@ const Home = () => {
             <TaskCountTextContainer>
               <TaskCountHeader>
                 {taskStats.completedTasksCount === 0
-                  ? `You have ${tasks.length} task${tasks.length > 1 ? "s" : ""} to complete.`
-                  : `You've completed ${taskStats.completedTasksCount} out of ${tasks.length} tasks.`}
+                  ? `You have ${tasks.length} task${tasks.length > 1 ? "s" : ""} begging to be checked`
+                  : `${taskStats.completedTasksCount} down, ${tasks.length - taskStats.completedTasksCount} to go - you're on fire!`}
               </TaskCountHeader>
               <TaskCompletionText>{taskCompletionText}</TaskCompletionText>
               {taskStats.tasksWithDeadlineTodayCount > 0 && (

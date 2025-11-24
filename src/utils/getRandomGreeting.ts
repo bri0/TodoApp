@@ -4,35 +4,37 @@ export const maxRecentGreetings = 8; // Number of recent greetings to track
 const hoursLeft = 24 - new Date().getHours();
 
 const greetingsText: string[] = [
-  "Let's make today count! **1f680**",
-  "Get things done and conquer the day!",
-  "Embrace the power of productivity!",
-  "Set your goals, crush them, repeat.",
-  "Today is a new opportunity to be productive!",
-  "Make every moment count.",
-  "Stay organized, stay ahead.",
-  "Take charge of your day!",
-  "One task at a time, you've got this!",
-  "Productivity is the key to success. **1f511**",
-  "Let's turn plans into accomplishments!",
-  "Start small, achieve big.",
-  "Be efficient, be productive.",
-  "Harness the power of productivity!",
-  "Get ready to make things happen!",
-  "It's time to check off those tasks! **2705**",
-  "Start your day with a plan! **1f5d3-fe0f**",
-  "Stay focused, stay productive.",
-  "Unlock your productivity potential. **1f513**",
-  "Turn your to-do list into a to-done list! **1f4dd**",
-  `Have a wonderful ${new Date().toLocaleDateString("en", {
-    weekday: "long",
-  })}!`,
+  // Therapy-themed messages (majority)
+  "Your therapist will see you now... The checkbox. **2705**",
+  "Prescription refill: Check all the boxes **1f48a**",
+  "Diagnosis: Chronic productivity. Treatment: More tasks! **1f4cb**",
+  "Remember: Checking boxes IS self-care **2728**",
+  "Warning: May cause uncontrollable satisfaction **26a0-fe0f**",
+  "Check yourself before you wreck yourself **2705**",
+  "Boxes won't check themselves... or will they? **1f914**",
+  "Feeling listless? We've got lists for that! **1f4dd**",
+  "Task-tastic day ahead! **1f389**",
+  "Let's get checking! **1f680**",
+  "Make your to-do list jealous of your done list **1f4af**",
+  "One check at a time, you've got this! **1f4aa**",
+  "Certified box-checking professional **1f393**",
+  "Time for your productivity prescription **231a**",
+
+  // Tonny's messages (3 out of 20+ = 15%)
+  "Built by Tonny, powered by your productivity **1f680**",
+  "Made with caffeine and determination by Tonny **2615**",
+  "Tonny's prescription: More checkboxes! **1f48a**",
+
+  // Time-based messages
   `Happy ${new Date().toLocaleDateString("en", {
     month: "long",
-  })}! A great month for productivity!`,
+  })}! Peak therapy season! **1f4c5**`,
+  `It's ${new Date().toLocaleDateString("en", {
+    weekday: "long",
+  })} - Time to check those boxes! **1f5d3-fe0f**`,
   hoursLeft > 4
-    ? `${hoursLeft} hours left in the day. Use them wisely!`
-    : `Only ${hoursLeft} hours left in the day`,
+    ? `${hoursLeft} hours left - Make them count! **231a**`
+    : `Only ${hoursLeft} hours left - Quick, check those boxes! **23f0**`,
 ];
 
 /**

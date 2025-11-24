@@ -1,15 +1,15 @@
 import type { ManifestOptions } from "vite-plugin-pwa";
 
 const manifest: Partial<ManifestOptions> = {
-  name: "Todo App",
-  short_name: "Todo App",
+  name: "Tickbox Therapy",
+  short_name: "Tickbox Therapy",
   display: "standalone",
   scope: "/",
   start_url: "/",
   theme_color: "#7764E8",
   background_color: "#171D34",
   description:
-    "A fast and modern Todo app built with React, featuring task sharing via link, P2P Task Sync with WebRTC, theme customization, offline usage as a PWA, and caching for smooth performance. Made by github.com/maciekt07",
+    "Your daily dose of productivity dopamine. A prescription-strength task manager that treats your to-do list addiction with more to-do lists. Side effects include: satisfaction, organization, and an uncontrollable urge to check more boxes. Made by Tonny.",
   categories: ["productivity", "utilities", "lifestyle"],
   edge_side_panel: {
     preferred_width: 500,
