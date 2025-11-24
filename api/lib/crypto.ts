@@ -59,8 +59,8 @@ export async function encryptData(data: string, publicKeyHex: string): Promise<s
   // Use sealed box for public key encryption
   const encrypted = sodium.crypto_box_seal(dataBytes, publicKey);
 
-  // Return as base64 string for storage
-  return uint8ArrayToBase64(encrypted);
+  // Return as base64 string for storage (using sodium's base64 to match frontend)
+  return sodium.to_base64(encrypted, sodium.base64_variants.ORIGINAL);
 }
 
 /**
@@ -86,9 +86,4 @@ function hexToUint8Array(hexString: string): Uint8Array {
   return bytes;
 }
 
-/**
- * Helper: Convert Uint8Array to base64
- */
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString("base64");
-}
+// Removed: using sodium.to_base64() instead for compatibility
