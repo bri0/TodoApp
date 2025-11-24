@@ -1,0 +1,12 @@
+node_modules
+.git
+.cache
+dev-dist
+*.log
+.DS_Store
+screenshots
+.vscode
+.idea
+scripts/splash-screens
+build-*.log
+server

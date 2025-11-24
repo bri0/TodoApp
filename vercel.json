@@ -1,0 +1,35 @@
+{
+  "buildCommand": "bun install && bun run build",
+  "installCommand": "bun install",
+  "framework": null,
+  "outputDirectory": "dist",
+  "bunVersion": "1.x",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs20.x",
+      "memory": 512,
+      "maxDuration": 10,
+      "includeFiles": "src/server/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, must-revalidate"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

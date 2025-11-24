@@ -1,6 +1,7 @@
 import type { Task, Category } from "../types/user";
 
-const REMOTE_URL = import.meta.env.VITE_REMOTE_URL || "http://localhost:9999";
+// Use relative path for same-origin API requests (no CORS needed)
+const REMOTE_URL = import.meta.env.VITE_REMOTE_URL || "/api";
 
 export interface SyncData {
   tasks: Task[];

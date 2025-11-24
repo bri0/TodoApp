@@ -189,6 +189,65 @@ After building, preview the production build locally:
 bun run preview
 ```
 
+## 🌐 Deployment on Vercel
+
+This app includes a backend API for secure task synchronization with zero-knowledge encryption. The backend is integrated as Vercel serverless functions, allowing for easy deployment under a single domain.
+
+### Prerequisites
+
+- A PostgreSQL database (e.g., from [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres), [Supabase](https://supabase.com/), or [Neon](https://neon.tech/))
+- A Vercel account
+
+### Deployment Steps
+
+1. **Fork or clone this repository**
+
+2. **Import the project to Vercel:**
+
+   - Go to [vercel.com](https://vercel.com)
+   - Click "Add New Project"
+   - Import your repository
+
+3. **Configure environment variables in Vercel:**
+
+   - `DATABASE_URL`: Your PostgreSQL connection string with SSL
+     ```
+     postgresql://user:password@host:5432/database?sslmode=require
+     ```
+   - `NODE_ENV`: Set to `production`
+
+4. **Deploy:**
+   - Vercel will automatically build and deploy your app
+   - The frontend will be served from the root domain
+   - The API will be available at `/api/t/:uid`
+
+### Features
+
+- **Zero-Knowledge Encryption**: The server never has access to decrypted user data
+- **Auto-Registration**: Users are automatically registered on first sync
+- **Same-Origin API**: No CORS configuration needed
+- **Serverless Architecture**: Automatically scales with usage
+- **PostgreSQL Storage**: Reliable and scalable data persistence
+
+### Local Development with Backend
+
+To run the full stack locally:
+
+1. Set up a PostgreSQL database locally or use a cloud provider
+
+2. Create a `.env` file in the project root:
+
+   ```env
+   DATABASE_URL=postgresql://localhost:5432/todo_sync
+   ```
+
+3. Start the development server:
+   ```bash
+   bun run dev
+   ```
+
+The Vite dev server will proxy API requests to your backend.
+
 ## 📷 Screenshots
 
 <img src="https://raw.githubusercontent.com/maciekt07/TodoApp/main/screenshots/ss1.png" width="300px" />

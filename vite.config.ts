@@ -19,6 +19,14 @@ const DEV_ENABLE_PWA = false;
 // https://vitejs.dev/config/
 export default defineConfig({
   cacheDir: ".cache/vite",
+  server: {
+    proxy: {
+      "/api": {
+        target: process.env.VITE_API_URL || "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
+  },
   optimizeDeps: {
     include: ["react", "react-dom", "@emotion/react", "@emotion/styled"],
     esbuildOptions: {
