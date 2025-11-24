@@ -59,8 +59,8 @@ export async function encryptData(data: string, publicKeyHex: string): Promise<s
   // Use sealed box for public key encryption
   const encrypted = sodium.crypto_box_seal(dataBytes, publicKey);
 
-  // Return as base64 string for storage (using sodium's base64 to match frontend)
-  return sodium.to_base64(encrypted, sodium.base64_variants.ORIGINAL);
+  // Return as base64 string for storage (using same default as frontend)
+  return sodium.to_base64(encrypted);
 }
 
 /**
