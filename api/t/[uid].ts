@@ -6,9 +6,9 @@ import {
   createUser,
   getUserData,
   saveUserData,
-} from "../../src/server/db";
-import { encryptData, validatePublicKeyHash } from "../../src/server/crypto";
-import type { SyncRequest, SyncResponse } from "../../src/server/types";
+} from "../lib/db";
+import { encryptData, validatePublicKeyHash } from "../lib/crypto";
+import type { SyncRequest, SyncResponse } from "../lib/types";
 
 // Initialize database on cold start
 // Use a promise to prevent race conditions during concurrent requests
