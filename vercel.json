@@ -1,12 +1,9 @@
 {
   "buildCommand": "bun install && bun run build",
   "installCommand": "bun install",
-  "framework": null,
   "outputDirectory": "dist",
-  "bunVersion": "1.x",
   "functions": {
     "api/**/*.ts": {
-      "runtime": "nodejs20.x",
       "memory": 512,
       "maxDuration": 10,
       "includeFiles": "src/server/**"
