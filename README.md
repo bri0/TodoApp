@@ -203,13 +203,11 @@ This app includes a backend API for secure task synchronization with zero-knowle
 1. **Fork or clone this repository**
 
 2. **Import the project to Vercel:**
-
    - Go to [vercel.com](https://vercel.com)
    - Click "Add New Project"
    - Import your repository
 
 3. **Configure environment variables in Vercel:**
-
    - `DATABASE_URL`: Your PostgreSQL connection string with SSL
      ```
      postgresql://user:password@host:5432/database?sslmode=require
