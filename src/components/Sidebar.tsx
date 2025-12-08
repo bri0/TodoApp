@@ -331,8 +331,6 @@ export const ProfileSidebar = () => {
           </StyledMenuItem>
         </MenuLink>
 
-        <StyledDivider />
-
         {supportsPWA && !isAppInstalled && (
           <StyledMenuItem tabIndex={0} onClick={installPWA}>
             {systemInfo.os === "Android" ? (
@@ -365,6 +363,8 @@ export const ProfileSidebar = () => {
               &nbsp; Install App
             </StyledMenuItem>
           )}
+
+        <StyledDivider />
 
         <StyledMenuItem
           tabIndex={0}
