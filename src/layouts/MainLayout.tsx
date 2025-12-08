@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { BottomNav, ProfileSidebar } from "../components";
+import { BottomNav, ProfileSidebar, PWAInstallPrompt } from "../components";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -12,6 +12,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       {children}
       <div style={{ marginTop: "128px" }} />
       <BottomNav />
+      <PWAInstallPrompt />
     </>
   );
 };
