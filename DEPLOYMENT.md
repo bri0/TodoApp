@@ -23,7 +23,6 @@ You need a PostgreSQL database with SSL support. Recommended providers:
   ```
 
 - **Neon**: Serverless PostgreSQL
-
   - Sign up at [neon.tech](https://neon.tech)
   - Create a new project
   - Copy the connection string
@@ -74,20 +73,17 @@ Sign up at [vercel.com](https://vercel.com) if you don't have an account.
 ### Option B: Deploy via Vercel Dashboard
 
 1. **Import your repository**:
-
    - Go to [vercel.com/new](https://vercel.com/new)
    - Import your Git repository
    - Select the TodoApp project
 
 2. **Configure Build Settings**:
-
    - Framework Preset: `Other`
    - Build Command: `bun install && bun run build`
    - Output Directory: `dist`
    - Install Command: `bun install`
 
 3. **Add Environment Variables**:
-
    - Go to Project Settings > Environment Variables
    - Add the following:
 

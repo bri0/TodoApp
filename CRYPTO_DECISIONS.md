@@ -74,12 +74,10 @@ The **frontend uses libsodium's sealed box** (`crypto_box_seal`) for encryption:
 ## Why Cold Start is Acceptable
 
 1. **Vercel Function Reuse**: After first invocation, the container stays warm
-
    - First request: ~300ms initialization
    - Subsequent requests: < 10ms (no initialization)
 
 2. **Typical Usage Pattern**: Users sync periodically, not constantly
-
    - Most requests hit warm containers
    - Cold starts are rare in production
 
