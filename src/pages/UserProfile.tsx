@@ -69,14 +69,12 @@ const UserProfile = () => {
   }
 
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => {
-    return (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      ("standalone" in window.navigator &&
-        (window.navigator as { standalone?: boolean }).standalone === true)
-    );
-  });
   const [openInstalledDialog, setOpenInstalledDialog] = useState<boolean>(false);
+
+  const isAppInstalled =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    ("standalone" in window.navigator &&
+      (window.navigator as { standalone?: boolean }).standalone === true);
 
   useEffect(() => {
     document.title = `Todo App - User ${name ? `(${name})` : ""}`;
@@ -114,14 +112,7 @@ const UserProfile = () => {
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
-    const detectAppInstallation = () => {
-      window.matchMedia("(display-mode: standalone)").addEventListener("change", (e) => {
-        setIsAppInstalled(e.matches);
-      });
-    };
-
     window.addEventListener("beforeinstallprompt", beforeInstallPromptHandler);
-    detectAppInstallation();
 
     return () => {
       window.removeEventListener("beforeinstallprompt", beforeInstallPromptHandler);
@@ -250,6 +241,13 @@ const UserProfile = () => {
   };
 
   const installPWA = () => {
+    // Check if already installed
+    if (isAppInstalled) {
+      showToast("App is already installed!", { type: "success" });
+      return;
+    }
+
+    // Try to install
     if (deferredPrompt) {
       deferredPrompt.prompt();
       deferredPrompt.userChoice.then((choiceResult) => {
@@ -257,7 +255,7 @@ const UserProfile = () => {
           if (systemInfo.os === "Windows") {
             setOpenInstalledDialog(true);
           } else {
-            showToast("App installed successfully!");
+            showToast("App installed successfully!", { type: "success" });
           }
         }
         if (choiceResult.outcome === "dismissed") {
@@ -267,8 +265,8 @@ const UserProfile = () => {
     } else {
       showToast(
         <div>
-          Installation prompt not available. Make sure you're using a supported browser and the app
-          isn't already installed.
+          Installation prompt not ready yet. Try refreshing the page or make sure you're using a
+          supported browser (Chrome, Edge, Samsung Internet).
         </div>,
         { duration: 6000 },
       );
@@ -395,47 +393,48 @@ const UserProfile = () => {
           &nbsp; Logout
         </Button>
 
-        {!isAppInstalled && (
-          <InstallSection>
-            <InstallSectionTitle>
-              {systemInfo.os === "Android" ? (
-                <InstallMobileRounded sx={{ fontSize: 40 }} />
-              ) : systemInfo.os === "iOS" ? (
-                <PhoneIphoneRounded sx={{ fontSize: 40 }} />
-              ) : (
-                <InstallDesktopRounded sx={{ fontSize: 40 }} />
-              )}
-              <div>
-                <strong>Install App</strong>
-                <InstallSectionSubtitle>Get quick access and work offline</InstallSectionSubtitle>
-              </div>
-            </InstallSectionTitle>
-            <InstallButton
-              variant="contained"
-              fullWidth
-              onClick={
-                systemInfo.browser === "Safari" && systemInfo.os === "iOS"
-                  ? handleIOSInstall
-                  : installPWA
-              }
-            >
-              {systemInfo.os === "Android" ? (
-                <InstallMobileRounded />
-              ) : systemInfo.os === "iOS" ? (
-                <PhoneIphoneRounded />
-              ) : (
-                <InstallDesktopRounded />
-              )}
-              Install Tickbox Therapy
-            </InstallButton>
-            <InstallFeatures>
-              <FeatureItem>Offline access to all your tasks</FeatureItem>
-              <FeatureItem>Faster loading and performance</FeatureItem>
-              <FeatureItem>Desktop shortcuts and app icon</FeatureItem>
-              <FeatureItem>Native app experience</FeatureItem>
-            </InstallFeatures>
-          </InstallSection>
-        )}
+        <InstallSection>
+          <InstallSectionTitle>
+            {systemInfo.os === "Android" ? (
+              <InstallMobileRounded sx={{ fontSize: 40 }} />
+            ) : systemInfo.os === "iOS" ? (
+              <PhoneIphoneRounded sx={{ fontSize: 40 }} />
+            ) : (
+              <InstallDesktopRounded sx={{ fontSize: 40 }} />
+            )}
+            <div>
+              <strong>Install App</strong>
+              <InstallSectionSubtitle>
+                {isAppInstalled ? "App is already installed" : "Get quick access and work offline"}
+              </InstallSectionSubtitle>
+            </div>
+          </InstallSectionTitle>
+          <InstallButton
+            variant="contained"
+            fullWidth
+            onClick={
+              systemInfo.browser === "Safari" && systemInfo.os === "iOS"
+                ? handleIOSInstall
+                : installPWA
+            }
+            disabled={isAppInstalled}
+          >
+            {systemInfo.os === "Android" ? (
+              <InstallMobileRounded />
+            ) : systemInfo.os === "iOS" ? (
+              <PhoneIphoneRounded />
+            ) : (
+              <InstallDesktopRounded />
+            )}
+            {isAppInstalled ? "Already Installed" : "Install Tickbox Therapy"}
+          </InstallButton>
+          <InstallFeatures>
+            <FeatureItem>Offline access to all your tasks</FeatureItem>
+            <FeatureItem>Faster loading and performance</FeatureItem>
+            <FeatureItem>Desktop shortcuts and app icon</FeatureItem>
+            <FeatureItem>Native app experience</FeatureItem>
+          </InstallFeatures>
+        </InstallSection>
       </Container>
       <Dialog open={openChangeImage} onClose={handleCloseImageDialog}>
         <CustomDialogTitle
