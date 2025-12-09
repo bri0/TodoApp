@@ -145,16 +145,21 @@ export const ProfileSidebar = () => {
     prompt(): Promise<void>;
   }
 
-  const [supportsPWA, setSupportsPWA] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(false);
+  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => {
+    // Check if app is already installed on mount
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      ("standalone" in window.navigator &&
+        (window.navigator as { standalone?: boolean }).standalone === true)
+    );
+  });
 
   const [openInstalledDialog, setOpenInstalledDialog] = useState<boolean>(false);
 
   useEffect(() => {
     const beforeInstallPromptHandler = (e: Event) => {
       e.preventDefault();
-      setSupportsPWA(true);
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
@@ -199,6 +204,15 @@ export const ProfileSidebar = () => {
           showToast("Installation dismissed.", { type: "error" });
         }
       });
+    } else {
+      // Prompt not available yet or browser doesn't support it
+      showToast(
+        <div>
+          Installation prompt not available. Make sure you're using a supported browser and the app
+          isn't already installed.
+        </div>,
+        { duration: 6000 },
+      );
     }
   };
 
@@ -331,38 +345,38 @@ export const ProfileSidebar = () => {
           </StyledMenuItem>
         </MenuLink>
 
-        {supportsPWA && !isAppInstalled && (
-          <StyledMenuItem tabIndex={0} onClick={installPWA}>
-            {systemInfo.os === "Android" ? (
-              <InstallMobileRounded />
+        {!isAppInstalled && (
+          <>
+            {systemInfo.browser === "Safari" && systemInfo.os === "iOS" ? (
+              <StyledMenuItem
+                tabIndex={0}
+                onClick={() => {
+                  showToast(
+                    <div style={{ display: "inline-block" }}>
+                      To install the app on iOS Safari, click on{" "}
+                      <IosShareRounded sx={{ verticalAlign: "middle", mb: "4px" }} /> and then{" "}
+                      <span style={{ fontWeight: "bold" }}>Add to Home Screen</span>.
+                    </div>,
+                    { type: "blank", duration: 8000 },
+                  );
+                  handleClose();
+                }}
+              >
+                <PhoneIphoneRounded />
+                &nbsp; Install App
+              </StyledMenuItem>
             ) : (
-              <InstallDesktopRounded className="InstallDesktopRoundedIcon" />
+              <StyledMenuItem tabIndex={0} onClick={installPWA}>
+                {systemInfo.os === "Android" ? (
+                  <InstallMobileRounded />
+                ) : (
+                  <InstallDesktopRounded className="InstallDesktopRoundedIcon" />
+                )}
+                &nbsp; Install App
+              </StyledMenuItem>
             )}
-            &nbsp; Install App
-          </StyledMenuItem>
+          </>
         )}
-
-        {systemInfo.browser === "Safari" &&
-          systemInfo.os === "iOS" &&
-          !window.matchMedia("(display-mode: standalone)").matches && (
-            <StyledMenuItem
-              tabIndex={0}
-              onClick={() => {
-                showToast(
-                  <div style={{ display: "inline-block" }}>
-                    To install the app on iOS Safari, click on{" "}
-                    <IosShareRounded sx={{ verticalAlign: "middle", mb: "4px" }} /> and then{" "}
-                    <span style={{ fontWeight: "bold" }}>Add to Home Screen</span>.
-                  </div>,
-                  { type: "blank", duration: 8000 },
-                );
-                handleClose();
-              }}
-            >
-              <PhoneIphoneRounded />
-              &nbsp; Install App
-            </StyledMenuItem>
-          )}
 
         <StyledDivider />
 
