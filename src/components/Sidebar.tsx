@@ -5,37 +5,22 @@ import {
   AddRounded,
   CategoryRounded,
   DeleteForeverRounded,
-  DownloadDoneRounded,
   Favorite,
   FiberManualRecord,
-  InstallDesktopRounded,
-  InstallMobileRounded,
-  IosShareRounded,
   Logout,
-  PhoneIphoneRounded,
   PhonelinkRounded,
   SettingsRounded,
   TaskAltRounded,
-  ThumbUpRounded,
 } from "@mui/icons-material";
-import {
-  Dialog,
-  DialogActions,
-  DialogContent,
-  Divider,
-  IconButton,
-  MenuItem,
-  SwipeableDrawer,
-  Tooltip,
-} from "@mui/material";
+import { Divider, IconButton, MenuItem, SwipeableDrawer, Tooltip } from "@mui/material";
 import React, { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CustomDialogTitle, LogoutDialog, SettingsDialog } from ".";
+import { LogoutDialog, SettingsDialog } from ".";
 import { defaultUser } from "../constants/defaultUser";
 import { UserContext } from "../contexts/UserContext";
 import { fetchBMCInfo } from "../services/bmcApi";
 import { fetchGitHubInfo } from "../services/githubApi";
-import { DialogBtn, UserAvatar, pulseAnimation, reduceMotion, ring } from "../styles";
+import { UserAvatar, pulseAnimation, reduceMotion, ring } from "../styles";
 import { ColorPalette } from "../theme/themeConfig";
 import {
   getProfilePictureFromDB,
@@ -134,86 +119,6 @@ export const ProfileSidebar = () => {
 
   const handleClose = () => {
     setAnchorEl(null);
-  };
-
-  interface BeforeInstallPromptEvent extends Event {
-    readonly platforms: ReadonlyArray<string>;
-    readonly userChoice: Promise<{
-      outcome: "accepted" | "dismissed";
-      platform: string;
-    }>;
-    prompt(): Promise<void>;
-  }
-
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => {
-    // Check if app is already installed on mount
-    return (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      ("standalone" in window.navigator &&
-        (window.navigator as { standalone?: boolean }).standalone === true)
-    );
-  });
-
-  const [openInstalledDialog, setOpenInstalledDialog] = useState<boolean>(false);
-
-  useEffect(() => {
-    const beforeInstallPromptHandler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-
-    const detectAppInstallation = () => {
-      window.matchMedia("(display-mode: standalone)").addEventListener("change", (e) => {
-        setIsAppInstalled(e.matches);
-      });
-    };
-
-    window.addEventListener("beforeinstallprompt", beforeInstallPromptHandler);
-    detectAppInstallation();
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", beforeInstallPromptHandler);
-    };
-  }, []);
-
-  const installPWA = () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === "accepted") {
-          // if ("setAppBadge" in navigator) {
-          //   setUser((prevUser) => ({
-          //     ...prevUser,
-          //     settings: {
-          //       ...prevUser.settings,
-          //       appBadge: true,
-          //     },
-          //   }));
-          // }
-
-          // Show a dialog to inform the user that the app is now running as a PWA on Windows
-          if (systemInfo.os === "Windows") {
-            setOpenInstalledDialog(true);
-          } else {
-            showToast("App installed successfully!");
-          }
-          handleClose();
-        }
-        if (choiceResult.outcome === "dismissed") {
-          showToast("Installation dismissed.", { type: "error" });
-        }
-      });
-    } else {
-      // Prompt not available yet or browser doesn't support it
-      showToast(
-        <div>
-          Installation prompt not available. Make sure you're using a supported browser and the app
-          isn't already installed.
-        </div>,
-        { duration: 6000 },
-      );
-    }
   };
 
   // const avatarButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -345,39 +250,6 @@ export const ProfileSidebar = () => {
           </StyledMenuItem>
         </MenuLink>
 
-        {!isAppInstalled && (
-          <>
-            {systemInfo.browser === "Safari" && systemInfo.os === "iOS" ? (
-              <StyledMenuItem
-                tabIndex={0}
-                onClick={() => {
-                  showToast(
-                    <div style={{ display: "inline-block" }}>
-                      To install the app on iOS Safari, click on{" "}
-                      <IosShareRounded sx={{ verticalAlign: "middle", mb: "4px" }} /> and then{" "}
-                      <span style={{ fontWeight: "bold" }}>Add to Home Screen</span>.
-                    </div>,
-                    { type: "blank", duration: 8000 },
-                  );
-                  handleClose();
-                }}
-              >
-                <PhoneIphoneRounded />
-                &nbsp; Install App
-              </StyledMenuItem>
-            ) : (
-              <StyledMenuItem tabIndex={0} onClick={installPWA}>
-                {systemInfo.os === "Android" ? (
-                  <InstallMobileRounded />
-                ) : (
-                  <InstallDesktopRounded className="InstallDesktopRoundedIcon" />
-                )}
-                &nbsp; Install App
-              </StyledMenuItem>
-            )}
-          </>
-        )}
-
         <StyledDivider />
 
         <StyledMenuItem
@@ -458,23 +330,6 @@ export const ProfileSidebar = () => {
         </ProfileOptionsBottom>
       </StyledSwipeableDrawer>
 
-      <Dialog open={openInstalledDialog} onClose={() => setOpenInstalledDialog(false)}>
-        <CustomDialogTitle
-          title="App installed successfully!"
-          subTitle="The app is now running as a PWA."
-          icon={<DownloadDoneRounded />}
-          onClose={() => setOpenInstalledDialog(false)}
-        />
-        <DialogContent>
-          You can access it from your home screen, with offline support and features like shortcuts
-          and badges.
-        </DialogContent>
-        <DialogActions>
-          <DialogBtn onClick={() => setOpenInstalledDialog(false)}>
-            <ThumbUpRounded /> &nbsp; Got it
-          </DialogBtn>
-        </DialogActions>
-      </Dialog>
       <LogoutDialog open={openLogoutDialog} onClose={() => setOpenLogoutDialog(false)} />
       <SettingsDialog
         open={openSettings}

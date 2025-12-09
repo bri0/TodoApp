@@ -18,8 +18,13 @@ import styled from "@emotion/styled";
 import {
   AddAPhotoRounded,
   Delete,
+  DownloadDoneRounded,
+  InstallDesktopRounded,
+  InstallMobileRounded,
+  IosShareRounded,
   LinkRounded,
   Logout,
+  PhoneIphoneRounded,
   SaveRounded,
   Settings,
   TodayRounded,
@@ -29,7 +34,7 @@ import { PFP_MAX_SIZE, PROFILE_PICTURE_MAX_LENGTH, USER_NAME_MAX_LENGTH } from "
 import { CustomDialogTitle, LogoutDialog, TopBar } from "../components";
 import { DialogBtn, fadeIn, UserAvatar, VisuallyHiddenInput } from "../styles";
 import { UserContext } from "../contexts/UserContext";
-import { timeAgo, getFontColor, showToast } from "../utils";
+import { timeAgo, getFontColor, showToast, systemInfo } from "../utils";
 import {
   initDB,
   saveProfilePictureInDB,
@@ -52,6 +57,26 @@ const UserProfile = () => {
   const [openLogoutDialog, setOpenLogoutDialog] = useState<boolean>(false);
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const [showBrokenPfpAlert, setShowBrokenPfpAlert] = useState(false);
+
+  // PWA Install states
+  interface BeforeInstallPromptEvent extends Event {
+    readonly platforms: ReadonlyArray<string>;
+    readonly userChoice: Promise<{
+      outcome: "accepted" | "dismissed";
+      platform: string;
+    }>;
+    prompt(): Promise<void>;
+  }
+
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      ("standalone" in window.navigator &&
+        (window.navigator as { standalone?: boolean }).standalone === true)
+    );
+  });
+  const [openInstalledDialog, setOpenInstalledDialog] = useState<boolean>(false);
 
   useEffect(() => {
     document.title = `Todo App - User ${name ? `(${name})` : ""}`;
@@ -81,6 +106,26 @@ const UserProfile = () => {
     initDB().catch((error) => {
       console.error("Error initializing IndexedDB:", error);
     });
+  }, []);
+
+  useEffect(() => {
+    const beforeInstallPromptHandler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+
+    const detectAppInstallation = () => {
+      window.matchMedia("(display-mode: standalone)").addEventListener("change", (e) => {
+        setIsAppInstalled(e.matches);
+      });
+    };
+
+    window.addEventListener("beforeinstallprompt", beforeInstallPromptHandler);
+    detectAppInstallation();
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", beforeInstallPromptHandler);
+    };
   }, []);
 
   const handleSaveName = () => {
@@ -204,6 +249,43 @@ const UserProfile = () => {
     }
   };
 
+  const installPWA = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === "accepted") {
+          if (systemInfo.os === "Windows") {
+            setOpenInstalledDialog(true);
+          } else {
+            showToast("App installed successfully!");
+          }
+        }
+        if (choiceResult.outcome === "dismissed") {
+          showToast("Installation dismissed.", { type: "error" });
+        }
+      });
+    } else {
+      showToast(
+        <div>
+          Installation prompt not available. Make sure you're using a supported browser and the app
+          isn't already installed.
+        </div>,
+        { duration: 6000 },
+      );
+    }
+  };
+
+  const handleIOSInstall = () => {
+    showToast(
+      <div style={{ display: "inline-block" }}>
+        To install the app on iOS Safari, click on{" "}
+        <IosShareRounded sx={{ verticalAlign: "middle", mb: "4px" }} /> and then{" "}
+        <span style={{ fontWeight: "bold" }}>Add to Home Screen</span>.
+      </div>,
+      { type: "blank", duration: 8000 },
+    );
+  };
+
   return (
     <>
       <TopBar title="User Profile" />
@@ -312,6 +394,48 @@ const UserProfile = () => {
           <Logout />
           &nbsp; Logout
         </Button>
+
+        {!isAppInstalled && (
+          <InstallSection>
+            <InstallSectionTitle>
+              {systemInfo.os === "Android" ? (
+                <InstallMobileRounded sx={{ fontSize: 40 }} />
+              ) : systemInfo.os === "iOS" ? (
+                <PhoneIphoneRounded sx={{ fontSize: 40 }} />
+              ) : (
+                <InstallDesktopRounded sx={{ fontSize: 40 }} />
+              )}
+              <div>
+                <strong>Install App</strong>
+                <InstallSectionSubtitle>Get quick access and work offline</InstallSectionSubtitle>
+              </div>
+            </InstallSectionTitle>
+            <InstallButton
+              variant="contained"
+              fullWidth
+              onClick={
+                systemInfo.browser === "Safari" && systemInfo.os === "iOS"
+                  ? handleIOSInstall
+                  : installPWA
+              }
+            >
+              {systemInfo.os === "Android" ? (
+                <InstallMobileRounded />
+              ) : systemInfo.os === "iOS" ? (
+                <PhoneIphoneRounded />
+              ) : (
+                <InstallDesktopRounded />
+              )}
+              Install Tickbox Therapy
+            </InstallButton>
+            <InstallFeatures>
+              <FeatureItem>Offline access to all your tasks</FeatureItem>
+              <FeatureItem>Faster loading and performance</FeatureItem>
+              <FeatureItem>Desktop shortcuts and app icon</FeatureItem>
+              <FeatureItem>Native app experience</FeatureItem>
+            </InstallFeatures>
+          </InstallSection>
+        )}
       </Container>
       <Dialog open={openChangeImage} onClose={handleCloseImageDialog}>
         <CustomDialogTitle
@@ -409,6 +533,21 @@ const UserProfile = () => {
           </DialogBtn>
         </DialogActions>
       </Dialog>
+      <Dialog open={openInstalledDialog} onClose={() => setOpenInstalledDialog(false)}>
+        <CustomDialogTitle
+          title="App installed successfully!"
+          subTitle="The app is now running as a PWA."
+          icon={<DownloadDoneRounded />}
+          onClose={() => setOpenInstalledDialog(false)}
+        />
+        <DialogContent>
+          You can access it from your home screen, with offline support and features like shortcuts
+          and badges.
+        </DialogContent>
+        <DialogActions>
+          <DialogBtn onClick={() => setOpenInstalledDialog(false)}>Got it</DialogBtn>
+        </DialogActions>
+      </Dialog>
       <LogoutDialog open={openLogoutDialog} onClose={() => setOpenLogoutDialog(false)} />
     </>
   );
@@ -496,4 +635,70 @@ const BrokenPfpAlert = styled(Alert)`
   padding: 0 8px;
   align-items: center;
   animation: ${fadeIn} 0.5s ease-in;
+`;
+
+const InstallSection = styled.div`
+  width: 100%;
+  max-width: 320px;
+  margin-top: 24px;
+  padding: 24px;
+  border-radius: 20px;
+  background: ${({ theme }) => (theme.darkmode ? "#2a2a2a" : "#ffffff")};
+  border: 2px solid ${({ theme }) => theme.primary};
+  box-shadow: ${({ theme }) => `0 4px 20px ${theme.primary}33`};
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: ${fadeIn} 0.5s ease-in;
+`;
+
+const InstallSectionTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  color: ${({ theme }) => (theme.darkmode ? ColorPalette.fontLight : ColorPalette.fontDark)};
+
+  & strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+`;
+
+const InstallSectionSubtitle = styled.div`
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 0.8;
+`;
+
+const InstallButton = styled(Button)`
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: none;
+  background: ${({ theme }) => theme.primary};
+  color: ${({ theme }) => getFontColor(theme.primary)};
+  gap: 8px;
+
+  &:hover {
+    background: ${({ theme }) => theme.primary};
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+
+  transition: all 0.2s ease;
+`;
+
+const InstallFeatures = styled.ul`
+  margin: 0;
+  padding: 0 0 0 20px;
+  font-size: 13px;
+  opacity: 0.85;
+  color: ${({ theme }) => (theme.darkmode ? ColorPalette.fontLight : ColorPalette.fontDark)};
+`;
+
+const FeatureItem = styled.li`
+  margin: 6px 0;
+  line-height: 1.4;
 `;
